@@ -1,10 +1,19 @@
 services:
-  resource:
+  resource1:
     build:
       context: ./resource
       dockerfile: Dockerfile
     ports:
       - "12345:12345"
+    networks: [appnet]
+    restart: unless-stopped
+  resource2:
+    build:
+      context: ./resource
+      dockerfile: Dockerfile
+    command: ["12346"]
+    ports:
+      - "12346:12346"
     networks: [appnet]
     restart: unless-stopped
 
@@ -14,7 +23,7 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8080:8080"
-    depends_on: [resource]
+    depends_on: [resource1, resource2]
     networks: [appnet]
     restart: unless-stopped
 
