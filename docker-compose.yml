@@ -1,0 +1,23 @@
+services:
+  resource:
+    build:
+      context: ./resource
+      dockerfile: Dockerfile
+    ports:
+      - "12345:12345"
+    networks: [appnet]
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    depends_on: [resource]
+    networks: [appnet]
+    restart: unless-stopped
+
+networks:
+  appnet:
+    driver: bridge
