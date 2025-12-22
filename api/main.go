@@ -44,7 +44,7 @@ func newServer() (*Server, error) {
 		return nil, fmt.Errorf("can't create server: %w", err)
 	}
 
-	targetPeer, err := peer.AddrInfoFromString(fmt.Sprintf("/ip4/127.0.0.1/tcp/%d/p2p/%s", port, "12D3KooWGA94TgYHH338vdMzos8R8oLP8rk84DGzYfCR4KN717VL"))
+	targetPeer, err := peer.AddrInfoFromString(fmt.Sprintf("/dns4/resource/tcp/%d/p2p/%s", port, "12D3KooWGA94TgYHH338vdMzos8R8oLP8rk84DGzYfCR4KN717VL"))
 	if err != nil {
 		return nil, fmt.Errorf("cannot get target peer: %w", err)
 	}
