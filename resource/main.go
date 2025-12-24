@@ -16,14 +16,18 @@ import (
 
 	libp2p "github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/core/crypto"
+	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
+	"github.com/libp2p/go-libp2p/p2p/discovery/mdns"
 	"github.com/multiformats/go-multiaddr"
 )
 
 const (
 	protocolID           protocol.ID = "/hivenet/sample-app/1.0.0"
 	defaultListeningPort int         = 12345
+	rendezVous           string      = "meet-at-the-harbour"
 )
 
 func main() {
@@ -47,7 +51,6 @@ func main() {
 
 	p2pOpts := []libp2p.Option{
 		libp2p.ListenAddrs(sourceMultiAddr),
-		//libp2p.DisableRelay(),
 		libp2p.Identity(privKeyObj),
 	}
 
@@ -62,10 +65,31 @@ func main() {
 
 	host.SetStreamHandler(protocolID, receiveDataStreamHandler)
 
+	peerChan, err := initMDNS(host, rendezVous)
+	if err != nil {
+		slog.Fatal("cannot init mDNS")
+	}
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
-	<-ctx.Done()
-	fmt.Println("Shutting down...")
+	for { // allows multiple peers to join
+		select {
+		case <-ctx.Done():
+			fmt.Println("Shutting down...")
+			return
+		case peer := <-peerChan: // will block until we discover a peer
+			if peer.ID >= host.ID() {
+				// if other end peer id greater than us, don't connect to it, just wait for it to connect us
+				fmt.Println("Found peer:", peer, " id is greater than us, wait for it to connect to us")
+				continue
+			}
+			fmt.Println("Found peer:", peer, ", connecting")
+
+			if err := host.Connect(ctx, peer); err != nil {
+				fmt.Println("Connection failed:", err)
+				continue
+			}
+		}
+	}
 }
 
 func identityFromPort(port int) (crypto.PrivKey, crypto.PubKey, error) {
@@ -99,4 +123,29 @@ func receiveDataStreamHandler(stream network.Stream) {
 		fmt.Println("writing data", err.Error())
 		return
 	}
+}
+
+func initMDNS(peerhost host.Host, rendezvous string) (chan peer.AddrInfo, error) {
+	// register with service so that we get notified about peer discovery
+	n := &discoveryNotifee{}
+	n.PeerChan = make(chan peer.AddrInfo)
+
+	// An hour might be a long long period in practical applications. But this is fine for us
+	ser := mdns.NewMdnsService(peerhost, rendezvous, n)
+	if err := ser.Start(); err != nil {
+		return nil, err
+	}
+
+	fmt.Printf("mDNS service started for rendezvous: %s\n", rendezvous)
+
+	return n.PeerChan, nil
+}
+
+type discoveryNotifee struct {
+	PeerChan chan peer.AddrInfo
+}
+
+// interface to be called when new  peer is found
+func (n *discoveryNotifee) HandlePeerFound(pi peer.AddrInfo) {
+	n.PeerChan <- pi
 }
