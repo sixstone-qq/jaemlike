@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile
     ports:
       - "12345:12345"
-    networks: [appnet]
+    network_mode: host
     restart: unless-stopped
   resource2:
     build:
@@ -14,7 +14,7 @@ services:
     command: ["12346"]
     ports:
       - "12346:12346"
-    networks: [appnet]
+    network_mode: host
     restart: unless-stopped
 
   api:
@@ -24,9 +24,5 @@ services:
     ports:
       - "8080:8080"
     depends_on: [resource1, resource2]
-    networks: [appnet]
+    network_mode: host
     restart: unless-stopped
-
-networks:
-  appnet:
-    driver: bridge
