@@ -1,4 +1,4 @@
-module github.com/sixstone-qq/jaemlike/api
+module github.com/sixstone-qq/jaemlike/bootstrap
 
 go 1.25.5
 
