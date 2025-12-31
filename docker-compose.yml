@@ -1,10 +1,20 @@
 services:
+  bootstrap:
+    build:
+      context: ./bootstrap
+      dockerfile: Dockerfile
+    ports:
+      - "12347:12347"
+    networks:
+      - jaemlike-network
+    restart: unless-stopped
   resource1:
     build:
       context: ./resource
       dockerfile: Dockerfile
     ports:
       - "12345:12345"
+    depends_on: [bootstrap]
     networks:
       - jaemlike-network
     restart: unless-stopped
@@ -15,6 +25,7 @@ services:
     command: ["12346"]
     ports:
       - "12346:12346"
+    depends_on: [bootstrap]
     networks:
       - jaemlike-network
     restart: unless-stopped
@@ -25,7 +36,7 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8080:8080"
-    depends_on: [resource1, resource2]
+    depends_on: [bootstrap, resource1, resource2]
     networks:
       - jaemlike-network
     restart: unless-stopped
