@@ -69,9 +69,8 @@ func main() {
 }
 
 type Server struct {
-	host          host.Host
-	kademliaDHT   *dht.IpfsDHT
-	resourcePeers map[peer.ID]struct{} // Track discovered resource peers
+	host        host.Host
+	kademliaDHT *dht.IpfsDHT
 }
 
 func newServer(ctx context.Context) (*Server, error) {
@@ -80,26 +79,8 @@ func newServer(ctx context.Context) (*Server, error) {
 		libp2p.AddrsFactory(func(addrs []multiaddr.Multiaddr) []multiaddr.Multiaddr {
 			var filtered []multiaddr.Multiaddr
 			for _, addr := range addrs {
-				addrStr := addr.String()
 				// Keep only private network ranges
-				if strings.HasPrefix(addrStr, "/ip4/10.") ||
-					strings.HasPrefix(addrStr, "/ip4/172.16.") ||
-					strings.HasPrefix(addrStr, "/ip4/172.17.") ||
-					strings.HasPrefix(addrStr, "/ip4/172.18.") ||
-					strings.HasPrefix(addrStr, "/ip4/172.19.") ||
-					strings.HasPrefix(addrStr, "/ip4/172.20.") ||
-					strings.HasPrefix(addrStr, "/ip4/172.21.") ||
-					strings.HasPrefix(addrStr, "/ip4/172.22.") ||
-					strings.HasPrefix(addrStr, "/ip4/172.23.") ||
-					strings.HasPrefix(addrStr, "/ip4/172.24.") ||
-					strings.HasPrefix(addrStr, "/ip4/172.25.") ||
-					strings.HasPrefix(addrStr, "/ip4/172.26.") ||
-					strings.HasPrefix(addrStr, "/ip4/172.27.") ||
-					strings.HasPrefix(addrStr, "/ip4/172.28.") ||
-					strings.HasPrefix(addrStr, "/ip4/172.29.") ||
-					strings.HasPrefix(addrStr, "/ip4/172.30.") ||
-					strings.HasPrefix(addrStr, "/ip4/172.31.") ||
-					strings.HasPrefix(addrStr, "/ip4/192.168.") {
+				if isPrivateNetwork(addr) {
 					filtered = append(filtered, addr)
 				}
 			}
@@ -113,8 +94,7 @@ func newServer(ctx context.Context) (*Server, error) {
 	fmt.Println("API host ID", host.ID(), "Addresses", host.Addrs())
 
 	srv := &Server{
-		host:          host,
-		resourcePeers: make(map[peer.ID]struct{}),
+		host: host,
 	}
 
 	kademliaDHT, peerCh, err := initDHT(ctx, host)
@@ -166,22 +146,35 @@ func newServer(ctx context.Context) (*Server, error) {
 					continue
 				}
 				fmt.Printf("Successfully connected to peer %s\n", p.ID)
-
-				// Verify the peer supports our protocol
-				protocols, err := host.Peerstore().SupportsProtocols(p.ID, protocolID)
-				if err != nil || len(protocols) == 0 {
-					fmt.Printf("Peer %s does not support protocol %s\n", p.ID, protocolID)
-					continue
-				}
-				fmt.Printf("Peer %s supports protocol %s\n", p.ID, protocolID)
-
-				// Mark this as a resource peer
-				srv.resourcePeers[p.ID] = struct{}{}
 			}
 		}
 	}()
 
 	return srv, nil
+}
+
+func isPrivateNetwork(addr multiaddr.Multiaddr) bool {
+	s := addr.String()
+	// Allow private IPv4 ranges:
+	// 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
+	return bytes.Contains([]byte(s), []byte("/ip4/10.")) ||
+		bytes.Contains([]byte(s), []byte("/ip4/172.16.")) ||
+		bytes.Contains([]byte(s), []byte("/ip4/172.17.")) ||
+		bytes.Contains([]byte(s), []byte("/ip4/172.18.")) ||
+		bytes.Contains([]byte(s), []byte("/ip4/172.19.")) ||
+		bytes.Contains([]byte(s), []byte("/ip4/172.20.")) ||
+		bytes.Contains([]byte(s), []byte("/ip4/172.21.")) ||
+		bytes.Contains([]byte(s), []byte("/ip4/172.22.")) ||
+		bytes.Contains([]byte(s), []byte("/ip4/172.23.")) ||
+		bytes.Contains([]byte(s), []byte("/ip4/172.24.")) ||
+		bytes.Contains([]byte(s), []byte("/ip4/172.25.")) ||
+		bytes.Contains([]byte(s), []byte("/ip4/172.26.")) ||
+		bytes.Contains([]byte(s), []byte("/ip4/172.27.")) ||
+		bytes.Contains([]byte(s), []byte("/ip4/172.28.")) ||
+		bytes.Contains([]byte(s), []byte("/ip4/172.29.")) ||
+		bytes.Contains([]byte(s), []byte("/ip4/172.30.")) ||
+		bytes.Contains([]byte(s), []byte("/ip4/172.31.")) ||
+		bytes.Contains([]byte(s), []byte("/ip4/192.168."))
 }
 
 func filterOutSelfAddrs(h host.Host, addrs []multiaddr.Multiaddr) []multiaddr.Multiaddr {
@@ -352,15 +345,12 @@ func (s *Server) selectPeer() peer.ID {
 		if p == s.host.ID() {
 			continue
 		}
-		// Only select if it's a resource peer
-		if _, isResource := s.resourcePeers[p]; isResource {
-			// Check if we're still connected
-			if s.host.Network().Connectedness(p) == 1 { // Connected
-				// Verify peer supports our protocol
-				protocols, err := s.host.Peerstore().SupportsProtocols(p, protocolID)
-				if err == nil && len(protocols) > 0 {
-					return p
-				}
+		// Check if we're still connected
+		if s.host.Network().Connectedness(p) == 1 { // Connected
+			// Verify peer supports our protocol
+			protocols, err := s.host.Peerstore().SupportsProtocols(p, protocolID)
+			if err == nil && len(protocols) > 0 {
+				return p
 			}
 		}
 	}

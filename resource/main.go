@@ -38,7 +38,9 @@ const (
 
 func main() {
 	var err error
-	ctx := context.Background()
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
+
 	port := defaultListeningPort
 	if len(os.Args) > 1 {
 		port, err = strconv.Atoi(os.Args[1])
@@ -87,8 +89,6 @@ func main() {
 	if err != nil {
 		slog.Fatal("cannot init DHT:", err.Error())
 	}
-	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer cancel()
 	<-ctx.Done()
 	fmt.Println("Shutting down...")
 
