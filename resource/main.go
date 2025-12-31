@@ -216,45 +216,48 @@ func findPeers(ctx context.Context, host host.Host, kademliaDHT *dht.IpfsDHT, ro
 				continue
 			}
 
-			select {
-			case <-ctx.Done():
-				return
-			case peer, ok := <-peerChan: // will block until we discover a peer
-				if !ok {
-					fmt.Println("discovery channel is closed")
+		drainLoop:
+			for {
+				select {
+				case <-ctx.Done():
 					return
-				}
-				// Validate peer information before attempting connection
-				if peer.ID == "" || peer.ID == host.ID() {
-					continue
-				}
-
-				// If no addresses, try to find them in the DHT
-				if len(peer.Addrs) == 0 {
-					fmt.Printf("Peer %s has no addresses, looking up in DHT...\n", peer.ID)
-					ctx2, cancel2 := context.WithTimeout(ctx, 10*time.Second)
-					peerInfo, err := kademliaDHT.FindPeer(ctx2, peer.ID)
-					cancel2()
-					if err != nil {
-						fmt.Printf("Failed to find peer %s in DHT: %v\n", peer.ID, err)
+				case peer, ok := <-peerChan: // drain the channel
+					if !ok {
+						fmt.Println("discovery channel is closed")
+						break drainLoop
+					}
+					// Validate peer information before attempting connection
+					if peer.ID == "" || peer.ID == host.ID() {
 						continue
 					}
-					peer = peerInfo
-					fmt.Printf("Found addresses for peer %s: %v\n", peer.ID, peer.Addrs)
-				}
 
-				if len(peer.Addrs) == 0 {
-					fmt.Println("Peer still has no addresses after DHT lookup:", peer.ID)
-					continue
-				}
+					// If no addresses, try to find them in the DHT
+					if len(peer.Addrs) == 0 {
+						fmt.Printf("Peer %s has no addresses, looking up in DHT...\n", peer.ID)
+						ctx2, cancel2 := context.WithTimeout(ctx, 10*time.Second)
+						peerInfo, err := kademliaDHT.FindPeer(ctx2, peer.ID)
+						cancel2()
+						if err != nil {
+							fmt.Printf("Failed to find peer %s in DHT: %v\n", peer.ID, err)
+							continue
+						}
+						peer = peerInfo
+						fmt.Printf("Found addresses for peer %s: %v\n", peer.ID, peer.Addrs)
+					}
 
-				fmt.Println("Found peer:", peer, ", connecting")
+					if len(peer.Addrs) == 0 {
+						fmt.Println("Peer still has no addresses after DHT lookup:", peer.ID)
+						continue
+					}
 
-				if err := host.Connect(ctx, peer); err != nil {
-					fmt.Println("Connection failed:", err)
-					continue
+					fmt.Println("Found peer:", peer, ", connecting")
+
+					if err := host.Connect(ctx, peer); err != nil {
+						fmt.Println("Connection failed:", err)
+						continue
+					}
+					fmt.Println("Connected")
 				}
-				fmt.Println("Connected")
 			}
 		}
 	}
