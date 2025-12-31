@@ -5,6 +5,9 @@ services:
       dockerfile: Dockerfile
     ports:
       - "12347:12347"
+    environment:
+      - BOOTSTRAP_SEED=jaemlike-bootstrap
+      - BOOTSTRAP_PORT=12347
     networks:
       - jaemlike-network
     restart: unless-stopped
@@ -14,6 +17,10 @@ services:
       dockerfile: Dockerfile
     ports:
       - "12345:12345"
+    environment:
+      - BOOTSTRAP_SEED=jaemlike-bootstrap
+      - BOOTSTRAP_HOST=bootstrap
+      - BOOTSTRAP_PORT=12347
     depends_on: [bootstrap]
     networks:
       - jaemlike-network
@@ -25,6 +32,10 @@ services:
     command: ["12346"]
     ports:
       - "12346:12346"
+    environment:
+      - BOOTSTRAP_SEED=jaemlike-bootstrap
+      - BOOTSTRAP_HOST=bootstrap
+      - BOOTSTRAP_PORT=12347
     depends_on: [bootstrap]
     networks:
       - jaemlike-network
@@ -36,6 +47,10 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8080:8080"
+    environment:
+      - BOOTSTRAP_SEED=jaemlike-bootstrap
+      - BOOTSTRAP_HOST=bootstrap
+      - BOOTSTRAP_PORT=12347
     depends_on: [bootstrap, resource1, resource2]
     networks:
       - jaemlike-network
